@@ -53,8 +53,8 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y jq zsh
 
-      - name: Get nodejs versions
-        id: get-nodejs-versions
+      - name: Get node versions
+        id: get-node-versions
         run: |
           ./.asdf/bin/asdf plugin add nodejs
           autoload is-at-least
