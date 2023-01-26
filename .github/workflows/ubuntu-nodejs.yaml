@@ -40,7 +40,7 @@ jobs:
   gather:
     runs-on: ubuntu-latest
     outputs:
-      go-versions: ${{ steps.get-go-versions.outputs.go-versions }}
+      node-versions: ${{ steps.get-node-versions.outputs.node-versions }}
     steps:
       - uses: actions/checkout@v3
 
@@ -53,8 +53,8 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
-      - name: Get go versions
-        id: get-go-versions
+      - name: Get nodejs versions
+        id: get-nodejs-versions
         run: |
           ./.asdf/bin/asdf plugin add nodejs
           autoload is-at-least
@@ -150,7 +150,7 @@ jobs:
     strategy:
       max-parallel: 10
       matrix:
-        go-version: ${{ fromJson(needs.gather.outputs.go-versions) }}
+        node-version: ${{ fromJson(needs.gather.outputs.node-versions) }}
     steps:
       - uses: actions/checkout@v3
 
@@ -184,18 +184,18 @@ jobs:
           echo commit=$(git rev-parse --short HEAD) >> $GITHUB_OUTPUT
           echo created=$(date -u +%Y-%m-%dT%H:%M:%SZ) >> $GITHUB_OUTPUT
           if [ "$TAG" != "$GITHUB_REF" ]; then
-            echo version=${{ matrix.go-version }}-$TAG >> $GITHUB_OUTPUT
-            echo ubuntu_version=${{ matrix.go-version }}-ubuntu-$TAG >> $GITHUB_OUTPUT
+            echo version=${{ matrix.node-version }}-$TAG >> $GITHUB_OUTPUT
+            echo ubuntu_version=${{ matrix.node-version }}-ubuntu-$TAG >> $GITHUB_OUTPUT
             echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
             echo main=true >> $GITHUB_OUTPUT
           elif [ "$BRANCH" = "main" ]; then
-            echo version=${{ matrix.go-version }}-ubuntu-latest >> $GITHUB_OUTPUT
-            echo ubuntu_version=${{ matrix.go-version }}-ubuntu >> $GITHUB_OUTPUT
+            echo version=${{ matrix.node-version }}-ubuntu-latest >> $GITHUB_OUTPUT
+            echo ubuntu_version=${{ matrix.node-version }}-ubuntu >> $GITHUB_OUTPUT
             echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
             echo main=true >> $GITHUB_OUTPUT
           else
-            echo version=${{ matrix.go-version }}-$BRANCH >> $GITHUB_OUTPUT
-            echo ubuntu_version=${{ matrix.go-version }}-ubuntu-$BRANCH >> $GITHUB_OUTPUT
+            echo version=${{ matrix.node-version }}-$BRANCH >> $GITHUB_OUTPUT
+            echo ubuntu_version=${{ matrix.node-version }}-ubuntu-$BRANCH >> $GITHUB_OUTPUT
             echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
             echo main=false >> $GITHUB_OUTPUT
           fi
@@ -212,7 +212,7 @@ jobs:
             CREATED=${{ steps.vars.outputs.created }}
             REVISION=${{ steps.vars.outputs.commit }}
             VERSION=${{ steps.vars.outputs.version }}
-            node_version=${{ matrix.go-version }}
+            node_version=${{ matrix.node-version }}
           tags: |
             etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
             etma/devcontainer-nodejs:${{ steps.vars.outputs.ubuntu_version }}

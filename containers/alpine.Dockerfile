@@ -1,7 +1,7 @@
 ARG BASE_VERSION=v1.0.1
 ARG NODE_VERSION=latest
 
-FROM ghcr.io/vertisky/devcontainers-base:alpine-${BASE_VERSION}
+FROM etma/devcontainer-base:alpine-${BASE_VERSION}
 ARG VERSION
 ARG COMMIT
 ARG BUILD_DATE

@@ -1,7 +1,7 @@
 ARG BASE_VERSION=v1.0.1
 ARG NODE_VERSION=latest
 
-FROM ghcr.io/vertisky/devcontainers:base-debian-${BASE_VERSION}
+FROM etma/devcontainer:base-debian-${BASE_VERSION}
 ARG VERSION
 ARG COMMIT
 ARG BUILD_DATE
