@@ -1,0 +1,221 @@
+# generate a github action to build debian docker image
+# and push to etma/devcontainer
+name: Debian-nodejs
+on:
+  push:
+    paths:
+      - .github/workflows/debian-nodejs.yaml
+      - containers/debian.Dockerfile
+      - .dockerignore
+      - containers/shell/**
+  pull_request:
+    paths:
+      - .github/workflows/debian-nodejs.yaml
+      - containers/debian.Dockerfile
+      - .dockerignore
+      - containers/shell/**
+
+jobs:
+  gather:
+    runs-on: ubuntu-latest
+    outputs:
+      go-versions: ${{ steps.get-go-versions.outputs.go-versions }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/checkout@v3
+        with:
+          repository: asdf-vm/asdf.git
+          path: ./.asdf
+          ref: v0.11.0
+
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Get go versions
+        id: get-go-versions
+        run: |
+          ./.asdf/bin/asdf plugin add nodejs
+          autoload is-at-least
+          versions=()
+          ./.asdf/bin/asdf list all nodejs | sort -V | while read line ; do
+              if is-at-least 14.0.0 $line || [[ $line = "lts-"* ]]; then
+                  versions+=("$line")
+              fi
+          done
+          echo "node-versions=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${versions[@]}")" >> $GITHUB_OUTPUT
+        shell: zsh {0}
+
+  verify:
+    runs-on: ubuntu-latest
+    needs: ['gather']
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to dockerhub to avoid rate limits
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Debian
+        run: docker build --build-arg node_version=latest -t etma/devcontainer:nodejs-debian -f ./containers/debian.Dockerfile .
+
+  latest:
+    runs-on: ubuntu-latest
+    needs: ['verify']
+    if: github.event_name == 'push'
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to dockerhub to avoid rate limits
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/setup-qemu-action@v2
+
+      - run: docker context create builders
+
+      - uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
+          endpoint: builders
+
+      - name: set variables
+        id: vars
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          TAG=${GITHUB_REF#refs/tags/}
+          echo commit=$(git rev-parse --short HEAD) >> $GITHUB_OUTPUT
+          echo created=$(date -u +%Y-%m-%dT%H:%M:%SZ) >> $GITHUB_OUTPUT
+          if [ "$TAG" != "$GITHUB_REF" ]; then
+            echo version=debian-latest-$TAG >> $GITHUB_OUTPUT
+            echo debian_version=debian-$TAG >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=true >> $GITHUB_OUTPUT
+          elif [ "$BRANCH" = "main" ]; then
+            echo version=debian-latest >> $GITHUB_OUTPUT
+            echo debian_version=debian >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=true >> $GITHUB_OUTPUT
+          else
+            echo version=debian-latest-$BRANCH >> $GITHUB_OUTPUT
+            echo debian_version=debian-$BRANCH >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=false >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push final image
+        uses: docker/build-push-action@v3
+        if: ${{ steps.vars.outputs.main }}
+        with:
+          context: .
+          file: ./containers/debian.Dockerfile
+          platforms: ${{ steps.vars.outputs.platforms }}
+          push: true
+          build-args: |
+            CREATED=${{ steps.vars.outputs.created }}
+            REVISION=${{ steps.vars.outputs.commit }}
+            VERSION=${{ steps.vars.outputs.version }}
+            node_version=latest
+          tags: |
+            etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
+            etma/devcontainer-nodejs:${{ steps.vars.outputs.debian_version }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: ['verify', 'gather']
+    if: github.event_name == 'push'
+    permissions:
+      packages: write
+    strategy:
+      max-parallel: 10
+      matrix:
+        go-version: ${{ fromJson(needs.gather.outputs.go-versions) }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to dockerhub to avoid rate limits
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/setup-qemu-action@v2
+
+      - run: docker context create builders
+
+      - uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
+          endpoint: builders
+
+      - name: set variables
+        id: vars
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          TAG=${GITHUB_REF#refs/tags/}
+          echo commit=$(git rev-parse --short HEAD) >> $GITHUB_OUTPUT
+          echo created=$(date -u +%Y-%m-%dT%H:%M:%SZ) >> $GITHUB_OUTPUT
+          if [ "$TAG" != "$GITHUB_REF" ]; then
+            echo version=${{ matrix.go-version }}-$TAG >> $GITHUB_OUTPUT
+            echo debian_version=${{ matrix.go-version }}-debian-$TAG >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=true >> $GITHUB_OUTPUT
+          elif [ "$BRANCH" = "main" ]; then
+            echo version=${{ matrix.go-version }}-debian-latest >> $GITHUB_OUTPUT
+            echo debian_version=${{ matrix.go-version }}-debian >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=true >> $GITHUB_OUTPUT
+          else
+            echo version=${{ matrix.go-version }}-$BRANCH >> $GITHUB_OUTPUT
+            echo debian_version=${{ matrix.go-version }}-debian-$BRANCH >> $GITHUB_OUTPUT
+            echo platforms=linux/amd64,linux/arm64 >> $GITHUB_OUTPUT
+            echo main=false >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push final image
+        uses: docker/build-push-action@v3
+        if: ${{ steps.vars.outputs.main }}
+        with:
+          context: .
+          file: ./containers/debian.Dockerfile
+          platforms: ${{ steps.vars.outputs.platforms }}
+          push: true
+          build-args: |
+            CREATED=${{ steps.vars.outputs.created }}
+            REVISION=${{ steps.vars.outputs.commit }}
+            VERSION=${{ steps.vars.outputs.version }}
+            node_version=${{ matrix.go-version }}
+          tags: |
+            etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
+            etma/devcontainer-nodejs:${{ steps.vars.outputs.debian_version }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
