@@ -1,4 +1,4 @@
-ARG BASE_VERSION=v1.0.1
+ARG BASE_VERSION=v1.2.1
 ARG NODE_VERSION=latest
 
 FROM etma/devcontainer-kube:debian-${BASE_VERSION}
