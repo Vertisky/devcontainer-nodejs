@@ -60,7 +60,7 @@ jobs:
           autoload is-at-least
           versions=()
           ./.asdf/bin/asdf list all nodejs | sort -V | while read line ; do
-              if is-at-least 14.0.0 $line || [[ $line = "lts-"* ]]; then
+              if is-at-least 18.0.0 $line || [[ $line = "lts-"* ]]; then
                   versions+=("$line")
               fi
           done
