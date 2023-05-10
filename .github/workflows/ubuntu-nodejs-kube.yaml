@@ -36,7 +36,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Ubuntu
-        run: docker build --build-arg node_version=latest -t etma/devcontainer:nodejs-ubuntu-kube -f ./containers/ubuntu-kube.Dockerfile .
+        run: docker build --build-arg NODE_VERSION=latest -t etma/devcontainer:nodejs-ubuntu-kube -f ./containers/ubuntu-kube.Dockerfile .
   gather:
     runs-on: ubuntu-latest
     outputs:
@@ -134,7 +134,7 @@ jobs:
             CREATED=${{ steps.vars.outputs.created }}
             REVISION=${{ steps.vars.outputs.commit }}
             VERSION=${{ steps.vars.outputs.version }}
-            node_version=latest
+            NODE_VERSION=latest
           tags: |
             etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
             etma/devcontainer-nodejs:${{ steps.vars.outputs.ubuntu_version }}
@@ -212,7 +212,7 @@ jobs:
             CREATED=${{ steps.vars.outputs.created }}
             REVISION=${{ steps.vars.outputs.commit }}
             VERSION=${{ steps.vars.outputs.version }}
-            node_version=${{ matrix.node-version }}
+            NODE_VERSION=${{ matrix.node-version }}
           tags: |
             etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
             etma/devcontainer-nodejs:${{ steps.vars.outputs.ubuntu_version }}

@@ -66,7 +66,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Debian
-        run: docker build --build-arg node_version=latest -t etma/devcontainer:nodejs-debian -f ./containers/debian.Dockerfile .
+        run: docker build --build-arg NODE_VERSION=latest -t etma/devcontainer:nodejs-debian -f ./containers/debian.Dockerfile .
 
   latest:
     runs-on: ubuntu-latest
@@ -135,7 +135,7 @@ jobs:
             CREATED=${{ steps.vars.outputs.created }}
             REVISION=${{ steps.vars.outputs.commit }}
             VERSION=${{ steps.vars.outputs.version }}
-            node_version=latest
+            NODE_VERSION=latest
           tags: |
             etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
             etma/devcontainer-nodejs:${{ steps.vars.outputs.debian_version }}
@@ -213,7 +213,7 @@ jobs:
             CREATED=${{ steps.vars.outputs.created }}
             REVISION=${{ steps.vars.outputs.commit }}
             VERSION=${{ steps.vars.outputs.version }}
-            node_version=${{ matrix.node-version }}
+            NODE_VERSION=${{ matrix.node-version }}
           tags: |
             etma/devcontainer-nodejs:${{ steps.vars.outputs.version }}
             etma/devcontainer-nodejs:${{ steps.vars.outputs.debian_version }}
